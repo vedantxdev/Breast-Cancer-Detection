@@ -1,0 +1,228 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Breast Cancer Detection | CNN</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #eef2ff, #fdf2f8);
+            color: #1f2937;
+        }
+
+        .card {
+            background: white;
+            padding: 32px;
+            border-radius: 20px;
+            width: 100%;
+            max-width: 520px;
+            box-shadow: 0 15px 45px #1f29371a;
+        }
+
+        h1 {
+            color: #4338ca;
+            margin-top: 0;
+        }
+
+        .subtitle {
+            color: #64748b;
+            line-height: 1.6;
+        }
+
+        .upload {
+            display: block;
+            padding: 24px;
+            border: 2px dashed #a5b4fc;
+            border-radius: 12px;
+            text-align: center;
+            margin: 22px 0;
+            background: #f8faff;
+        }
+
+        input {
+            max-width: 100%;
+            margin-top: 14px;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            border: 0;
+            border-radius: 10px;
+            background: #4f46e5;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #4338ca;
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: wait;
+        }
+
+        #preview {
+            display: none;
+            max-width: 100%;
+            max-height: 260px;
+            margin: 15px auto;
+            border-radius: 10px;
+        }
+
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            background: #f1f5f9;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
+
+        .note {
+            font-size: 12px;
+            color: #64748b;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+
+<body>
+    <main class="card">
+        <h1>Breast Cancer Detection</h1>
+
+        <p class="subtitle">
+            CNN-based classification of breast histopathology images.
+        </p>
+
+        <form id="uploadForm">
+            <label class="upload" for="image">
+                <strong>Select an image</strong><br>
+                <span class="subtitle">
+                    Choose a JPG, JPEG or PNG image
+                </span><br>
+
+                <input
+                    id="image"
+                    name="file"
+                    type="file"
+                    accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                    required
+                >
+            </label>
+
+            <img id="preview" alt="Selected image preview">
+
+            <button id="submitBtn" type="submit">
+                Predict Image
+            </button>
+        </form>
+
+        <div id="result" role="status" aria-live="polite">
+            Your prediction will appear here.
+        </div>
+
+        <p class="note">
+            Academic prototype only. Results are not a medical diagnosis
+            and must not be used to make healthcare decisions.
+        </p>
+    </main>
+
+    <script>
+        const form = document.getElementById("uploadForm");
+        const imageInput = document.getElementById("image");
+        const preview = document.getElementById("preview");
+        const result = document.getElementById("result");
+        const button = document.getElementById("submitBtn");
+
+        imageInput.addEventListener("change", () => {
+            const file = imageInput.files[0];
+
+            if (!file) {
+                preview.style.display = "none";
+                preview.removeAttribute("src");
+                return;
+            }
+
+            if (!file.type.startsWith("image/")) {
+                result.textContent = "Please select a valid image.";
+                imageInput.value = "";
+                preview.style.display = "none";
+                return;
+            }
+
+            preview.src = URL.createObjectURL(file);
+            preview.style.display = "block";
+
+            result.textContent =
+                "Image selected. Click Predict Image.";
+        });
+
+        form.addEventListener("submit", async (event) => {
+            event.preventDefault();
+
+            const file = imageInput.files[0];
+
+            if (!file) {
+                result.textContent = "Please select an image first.";
+                return;
+            }
+
+            button.disabled = true;
+            result.textContent = "Processing image. Please wait...";
+
+            try {
+                const formData = new FormData();
+
+                // Must match request.files["file"] in app2.py
+                formData.append("file", file);
+
+                const response = await fetch("/predict_image", {
+                    method: "POST",
+                    body: formData
+                });
+
+                const output = await response.json();
+
+                if (!response.ok || output.error) {
+                    throw new Error(
+                        output.error || "Prediction failed."
+                    );
+                }
+
+                const confidence = Number(output.confidence);
+
+                result.textContent =
+                    "Prediction: " + output.prediction +
+                    (
+                        Number.isFinite(confidence)
+                            ? "\nModel confidence: " +
+                              (confidence * 100).toFixed(2) + "%"
+                            : ""
+                    );
+
+            } catch (error) {
+                result.textContent =
+                    "Error: " + error.message;
+            } finally {
+                button.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
